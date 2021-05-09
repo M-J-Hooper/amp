@@ -1,4 +1,5 @@
 use crate::errors::*;
+use crate::git;
 use crate::view::buffer::{BufferRenderer, LexemeMapper};
 use crate::view::color::{ColorMap, Colors};
 use crate::view::StatusLineData;
@@ -69,7 +70,14 @@ impl<'p> Presenter<'p> {
         self.view.terminal.present();
     }
 
-    pub fn print_buffer(&mut self, buffer: &Buffer, buffer_data: &'p str, highlights: Option<&[Range]>, lexeme_mapper: Option<&'p mut dyn LexemeMapper>) -> Result<()> {
+    pub fn print_buffer(
+        &mut self,
+        buffer: &Buffer,
+        buffer_data: &'p str,
+        highlights: Option<&[Range]>,
+        lexeme_mapper: Option<&'p mut dyn LexemeMapper>,
+        git_data: &Option<git::FileData>
+    ) -> Result<()> {
         let scroll_offset = self.view.get_region(buffer)?.line_offset();
         let lines = LineIterator::new(buffer_data);
 
@@ -81,7 +89,8 @@ impl<'p> Presenter<'p> {
             &self.theme,
             &self.view.preferences.borrow(),
             self.view.get_render_cache(buffer)?,
-            &mut self.terminal_buffer
+            &mut self.terminal_buffer,
+            git_data
         ).render(lines, lexeme_mapper)?;
 
         Ok(())
@@ -180,7 +189,7 @@ mod tests {
         // Draw the buffer.
         let mut presenter = view.build_presenter().unwrap();
         let data = workspace.current_buffer().unwrap().data();
-        presenter.print_buffer(workspace.current_buffer().unwrap(), &data, None, None).unwrap();
+        presenter.print_buffer(workspace.current_buffer().unwrap(), &data, None, None, None).unwrap();
 
         // Ensure there is something in the render cache for this buffer.
         cache = view.get_render_cache(workspace.current_buffer().unwrap()).unwrap();

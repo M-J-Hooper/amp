@@ -13,7 +13,7 @@ pub fn display(workspace: &mut Workspace, mode: &mut JumpMode, view: &mut View) 
     mode.reset_display();
 
     // Draw the visible set of tokens to the terminal.
-    presenter.print_buffer(buf, &data, None, Some(mode))?;
+    presenter.print_buffer(buf, &data, None, Some(mode), &None)?;
 
     presenter.print_status_line(&[
         StatusLineData {

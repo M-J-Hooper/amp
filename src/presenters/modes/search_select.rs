@@ -21,7 +21,7 @@ pub fn display<T: Display>(workspace: &mut Workspace, mode: &mut dyn SearchSelec
 
     if let Some(buf) = workspace.current_buffer() {
         data = buf.data();
-        presenter.print_buffer(buf, &data, None, None)?;
+        presenter.print_buffer(buf, &data, None, None, &None)?;
 
         presenter.print_status_line(&[
             StatusLineData {

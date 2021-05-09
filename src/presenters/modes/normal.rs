@@ -1,4 +1,5 @@
 use crate::errors::*;
+use crate::git;
 use scribe::Workspace;
 use scribe::buffer::Position;
 use crate::presenters::{current_buffer_status_line_data, git_status_line_data};
@@ -12,7 +13,8 @@ pub fn display(workspace: &mut Workspace, view: &mut View, repo: &Option<Reposit
     if let Some(buf) = workspace.current_buffer() {
         // Draw the visible set of tokens to the terminal.
         let data = buf.data();
-        presenter.print_buffer(buf, &data, None, None)?;
+        let git_data = git::FileData::from(repo, &buf.path);
+        presenter.print_buffer(buf, &data, None, None, &git_data)?;
 
         // Determine mode display color based on buffer modification status.
         let colors = if buf.modified() {
@@ -29,7 +31,7 @@ pub fn display(workspace: &mut Workspace, view: &mut View, repo: &Option<Reposit
                 colors,
             },
             buffer_status,
-            git_status_line_data(&repo, &buf.path)
+            git_status_line_data(&git_data)
         ]);
 
         presenter.present();

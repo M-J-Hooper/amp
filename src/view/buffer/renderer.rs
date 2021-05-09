@@ -16,6 +16,7 @@ use syntect::highlighting::Style as ThemeStyle;
 use syntect::parsing::ScopeStack;
 use unicode_segmentation::UnicodeSegmentation;
 use crate::errors::*;
+use crate::git;
 
 /// A one-time-use type that encapsulates all of the
 /// details involved in rendering a buffer to the screen.
@@ -35,14 +36,18 @@ pub struct BufferRenderer<'a, 'p> {
     terminal: &'a dyn Terminal,
     terminal_buffer: &'a mut TerminalBuffer<'p>,
     theme: &'a Theme,
+    git_data: &'a Option<git::FileData>
 }
 
 impl<'a, 'p> BufferRenderer<'a, 'p> {
-    pub fn new(buffer: &'a Buffer, highlights: Option<&'a [Range]>,
-    scroll_offset: usize, terminal: &'a dyn Terminal, theme: &'a Theme,
-    preferences: &'a Preferences,
-    render_cache: &'a Rc<RefCell<HashMap<usize, RenderState>>>,
-    terminal_buffer: &'a mut TerminalBuffer<'p>) -> BufferRenderer<'a, 'p> {
+    pub fn new(
+        buffer: &'a Buffer, highlights: Option<&'a [Range]>,
+        scroll_offset: usize, terminal: &'a dyn Terminal, theme: &'a Theme,
+        preferences: &'a Preferences,
+        render_cache: &'a Rc<RefCell<HashMap<usize, RenderState>>>,
+        terminal_buffer: &'a mut TerminalBuffer<'p>,
+        git_data: &'a Option<git::FileData>
+    ) -> BufferRenderer<'a, 'p> {
         let line_numbers = LineNumbers::new(&buffer, Some(scroll_offset));
         let gutter_width = line_numbers.width() + 1;
 
@@ -67,6 +72,7 @@ impl<'a, 'p> BufferRenderer<'a, 'p> {
             terminal,
             terminal_buffer,
             theme,
+            git_data
         }
     }
 
@@ -308,10 +314,21 @@ impl<'a, 'p> BufferRenderer<'a, 'p> {
             Style::Default
         };
 
+        let line_no = self.buffer_position.line;
+        let color = if let Some(data) = self.git_data {
+            match data.status_of_line(line_no) {
+                Some(git::LineStatus::Added) => Colors::Insert,
+                Some(git::LineStatus::Modified) => Colors::Warning,
+                None => Colors::Focused,
+            }
+        } else {
+            Colors::Default
+        };
+
         self.print(
             Position{ line: self.screen_position.line, offset: 0 },
             weight,
-            Colors::Focused,
+            color,
             line_number
         );
 
@@ -423,7 +440,8 @@ mod tests {
             &theme_set.themes["base16-ocean.dark"],
             &preferences,
             &Rc::new(RefCell::new(HashMap::new())),
-            &mut terminal_buffer
+            &mut terminal_buffer,
+            &None
         ).render(lines, None).unwrap();
     }
 
@@ -454,7 +472,8 @@ mod tests {
             &theme_set.themes["base16-ocean.dark"],
             &preferences,
             &Rc::new(RefCell::new(HashMap::new())),
-            &mut terminal_buffer
+            &mut terminal_buffer,
+            &None
         ).render(lines, None).unwrap();
 
         // Both tabs should fully expand.
@@ -492,7 +511,8 @@ mod tests {
             &theme_set.themes["base16-ocean.dark"],
             &preferences,
             &Rc::new(RefCell::new(HashMap::new())),
-            &mut terminal_buffer
+            &mut terminal_buffer,
+            &None
         ).render(lines, None).unwrap();
 
         // The space between the tabs should just eat into the second tab's width.
@@ -527,7 +547,8 @@ mod tests {
             &theme_set.themes["base16-ocean.dark"],
             &preferences,
             &Rc::new(RefCell::new(HashMap::new())),
-            &mut terminal_buffer
+            &mut terminal_buffer,
+            &None
         ).render(lines, None).unwrap();
 
         let expected_content = " 1  amp ed\n    itor  \n 2  second\n     line \n 3        ";
@@ -569,7 +590,8 @@ mod tests {
             &theme_set.themes["base16-ocean.dark"],
             &preferences,
             &Rc::new(RefCell::new(HashMap::new())),
-            &mut terminal_buffer
+            &mut terminal_buffer,
+            &None
         ).render(lines, Some(&mut TestMapper{})).unwrap();
 
         let expected_content = " 1  mapped";
@@ -603,7 +625,8 @@ mod tests {
             &theme_set.themes["base16-ocean.dark"],
             &preferences,
             &Rc::new(RefCell::new(HashMap::new())),
-            &mut terminal_buffer
+            &mut terminal_buffer,
+            &None
         ).render(lines, None).unwrap();
 
         assert_eq!(cursor_position, Some(Position{ line: 0, offset: 4 }));
@@ -637,7 +660,8 @@ mod tests {
             &theme_set.themes["base16-ocean.dark"],
             &preferences,
             &render_cache,
-            &mut terminal_buffer
+            &mut terminal_buffer,
+            &None
         ).render(lines, None).unwrap();
 
         assert_eq!(render_cache.borrow().keys().count(), 5);
@@ -672,7 +696,8 @@ mod tests {
             &theme_set.themes["base16-ocean.dark"],
             &preferences,
             &render_cache,
-            &mut terminal_buffer
+            &mut terminal_buffer,
+            &None
         ).render(lines, None).unwrap();
 
         assert_eq!(render_cache.borrow().keys().count(), 1);
@@ -694,7 +719,8 @@ mod tests {
             &theme_set.themes["base16-ocean.dark"],
             &preferences,
             &render_cache,
-            &mut terminal_buffer
+            &mut terminal_buffer,
+            &None
         ).render(lines2, None).unwrap();
 
         assert_eq!(render_cache.borrow().keys().count(), 5);
@@ -732,7 +758,8 @@ mod tests {
             &theme_set.themes["base16-ocean.dark"],
             &preferences,
             &render_cache,
-            &mut terminal_buffer
+            &mut terminal_buffer,
+            &None
         ).render(lines, None).unwrap();
 
         assert_eq!(render_cache.borrow().keys().count(), 1);
@@ -753,7 +780,8 @@ mod tests {
             &theme_set.themes["base16-ocean.dark"],
             &preferences,
             &render_cache,
-            &mut terminal_buffer
+            &mut terminal_buffer,
+            &None
         ).render(lines2, None).unwrap();
 
         let expected_content = " 201  line\n 202  line\n 203  line\n 204      ";
